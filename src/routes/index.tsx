@@ -1,10 +1,12 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useRef, useState } from "react";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { useEffect, useState } from "react";
 import { UploadPanel } from "@/components/docusense/UploadPanel";
 import { EvidencePanel } from "@/components/docusense/EvidencePanel";
 import { ReaderPanel } from "@/components/docusense/ReaderPanel";
 import { Dashboard } from "@/components/docusense/Dashboard";
-import { SCANS, type LayerKey, type Scan } from "@/data/scans";
+import { SCANS, type LayerKey, type Scan, type Layer, type Passage } from "@/data/scans";
+import { useAuth } from "@/lib/auth";
+import { uploadDocument, getResult, type DetectionResultDto } from "@/lib/docusense-api";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -15,32 +17,164 @@ export const Route = createFileRoute("/")({
         content:
           "DocuSense scores academic documents across four transparent layers — stylometric, semantic, metadata and classifier — and shows exactly where the signals sit.",
       },
-      {
-        property: "og:title",
-        content: "DocuSense — Explainable AI-Content Detection",
-      },
-      {
-        property: "og:description",
-        content:
-          "A multi-layer, explainable AI-generated content detector for academic documents. Evidence for educators, never an automatic verdict.",
-      },
-      { property: "og:type", content: "website" },
-      { name: "twitter:card", content: "summary_large_image" },
     ],
   }),
   component: Index,
 });
 
+const HISTORY_KEY = "docusense_history";
+const LAYER_ORDER: LayerKey[] = ["stylometric", "semantic", "metadata", "classifier"];
+const LAYER_LABELS: Record<LayerKey, string> = {
+  stylometric: "Stylometric",
+  semantic: "Semantic",
+  metadata: "Metadata",
+  classifier: "Classifier",
+};
+
+function noteFor(layer: LayerKey, score: number): string {
+  const band = score > 0.65 ? "high" : score > 0.3 ? "moderate" : "low";
+  const templates: Record<LayerKey, Record<"high" | "moderate" | "low", string>> = {
+    stylometric: {
+      high: "Sentence length and word choice are unusually uniform across the document.",
+      moderate: "Some sections show flatter rhythm than others; not decisive alone.",
+      low: "Sentence structure varies naturally, consistent with typical human writing.",
+    },
+    semantic: {
+      high: "Several passages use generic, templated phrasing common in generated text.",
+      moderate: "A mix of specific and generic phrasing throughout.",
+      low: "Argument and phrasing read as specific and situationally grounded.",
+    },
+    metadata: {
+      high: "File properties (edit window, authorship) show signals worth reviewing.",
+      moderate: "One or two metadata signals are slightly atypical.",
+      low: "File properties look consistent with normal drafting history.",
+    },
+    classifier: {
+      high: "The heuristic classifier flags multiple sentences as machine-like.",
+      moderate: "A handful of sentences carry classifier-flagged phrasing.",
+      low: "Few or no sentences match the classifier's flagged patterns.",
+    },
+  };
+  return templates[layer][band];
+}
+
+function splitSentences(text: string): string[] {
+  return text
+    .split(/(?<=[.!?])\s+/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
+function mapResultToScan(result: DetectionResultDto, fallbackTitle: string, author: string): Scan {
+  const overall = result.overallScore / 100;
+  const flagged = result.highlightedSections.length;
+
+  const scoreByLayer = new Map(
+    result.layerScores.map((l) => [l.layerType.toLowerCase() as LayerKey, l.score / 100]),
+  );
+
+  const layers: Layer[] = LAYER_ORDER.map((key, i) => {
+    const score = scoreByLayer.get(key) ?? 0.5;
+    return {
+      key,
+      index: String(i + 1).padStart(2, "0"),
+      name: LAYER_LABELS[key],
+      score,
+      note: noteFor(key, score),
+    };
+  });
+
+  const text = result.document?.extractedText ?? "";
+  const sentences = splitSentences(text);
+  const flaggedPositions = new Set(result.highlightedSections.map((h) => h.position));
+  const flaggedByPosition = new Map(result.highlightedSections.map((h) => [h.position, h]));
+
+  const passages: Passage[] =
+    sentences.length > 0
+      ? sentences.map((s, i) => {
+          if (flaggedPositions.has(i)) {
+            const h = flaggedByPosition.get(i)!;
+            return {
+              id: `p${i}`,
+              text: s,
+              layer: "classifier" as LayerKey,
+              reason: `flagged pattern · classifier ${(h.sectionScore / 100).toFixed(2)}`,
+            };
+          }
+          return { id: `p${i}`, text: s };
+        })
+      : [{ id: "p0", text: "(No text preview available for this file type yet.)" }];
+
+  const summary =
+    overall > 0.65
+      ? "A high overall signal across multiple layers. Worth a conversation with the author — not a finding on its own."
+      : overall > 0.3
+        ? "A moderate signal. No single layer is decisive on its own."
+        : "A low overall signal, consistent with typical human writing.";
+
+  return {
+    id: `upload-${result.documentId}`,
+    title: fallbackTitle,
+    author,
+    words: text ? text.split(/\s+/).filter(Boolean).length : 0,
+    draft: "uploaded",
+    date: new Date().toLocaleDateString("en-US", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    }),
+    overall,
+    flagged,
+    summary,
+    layers,
+    passages,
+  };
+}
+
+function loadHistory(): Scan[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = localStorage.getItem(HISTORY_KEY);
+    return raw ? (JSON.parse(raw) as Scan[]) : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveHistory(scans: Scan[]) {
+  localStorage.setItem(HISTORY_KEY, JSON.stringify(scans.slice(0, 20)));
+}
+
 function Index() {
+  const { user, ready, logout } = useAuth();
+  const navigate = useNavigate();
+
+  const [history, setHistory] = useState<Scan[]>([]);
   const [scan, setScan] = useState<Scan>(SCANS[0]!);
   const [activeLayer, setActiveLayer] = useState<LayerKey | null>(null);
   const [fileName, setFileName] = useState<string | null>(null);
   const [analyzing, setAnalyzing] = useState(false);
   const [progress, setProgress] = useState(0);
   const [revealKey, setRevealKey] = useState("ds-1");
-  const timer = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => () => { if (timer.current) clearInterval(timer.current); }, []);
+  useEffect(() => {
+    setHistory(loadHistory());
+  }, []);
+
+  useEffect(() => {
+    if (ready && !user) {
+      navigate({ to: "/login" });
+    }
+  }, [ready, user, navigate]);
+
+  if (!ready || !user) {
+    return (
+      <main className="grid min-h-screen place-items-center bg-tabledeep">
+        <p className="text-paper/50">Loading…</p>
+      </main>
+    );
+  }
 
   const select = (next: Scan) => {
     setScan(next);
@@ -49,36 +183,40 @@ function Index() {
     document.getElementById("result")?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
 
-  const onFile = (name: string) => {
+  const onFile = async (file: File) => {
     if (analyzing) return;
-    setFileName(name);
+    setError(null);
+    setFileName(file.name);
     setAnalyzing(true);
-    setProgress(0);
-    if (timer.current) clearInterval(timer.current);
-    timer.current = setInterval(() => {
-      setProgress((p) => {
-        if (p >= 100) {
-          if (timer.current) clearInterval(timer.current);
-          setAnalyzing(false);
-          const next = SCANS[Math.floor(Math.random() * SCANS.length)]!;
-          select({ ...next, title: name.replace(/\.[^.]+$/, ""), draft: "uploaded" });
-          return 100;
-        }
-        return p + 4;
-      });
-    }, 70);
+    setProgress(15);
+
+    try {
+      const uploadResult = await uploadDocument(file, user.id, user.token);
+      setProgress(70);
+      const result = await getResult(uploadResult.documentId, user.token);
+      setProgress(100);
+
+      const newScan = mapResultToScan(result, file.name.replace(/\.[^.]+$/, ""), user.name);
+      const nextHistory = [newScan, ...history];
+      setHistory(nextHistory);
+      saveHistory(nextHistory);
+      select(newScan);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Upload failed.");
+    } finally {
+      setAnalyzing(false);
+    }
   };
 
   return (
     <main className="min-h-screen bg-tabledeep font-sans text-paper/80 antialiased">
-      {/* HERO / UPLOAD */}
-      <section className="grain relative overflow-hidden bg-table">
+      <section className="grain overflow-hidden bg-table">
         <div className="absolute inset-0 bg-[radial-gradient(120%_90%_at_15%_-10%,color-mix(in_oklab,var(--signal)_22%,transparent),transparent_55%)]" />
         <div className="absolute inset-0 bg-[radial-gradient(70%_60%_at_95%_110%,color-mix(in_oklab,var(--signal)_12%,transparent),transparent_60%)]" />
         <div className="relative z-10 mx-auto max-w-6xl px-6 py-16 lg:px-10 lg:py-20">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2.5">
-              <span className="grid size-7 place-items-center rounded-[8px] bg-signal/15 font-mono text-[13px] font-medium text-signal ring-1 ring-signal/40">
+              <span className="grid size-7 place-items-center rounded-xl bg-signal/15 font-mono text-[13px] font-medium text-signal ring-1 ring-signal/40">
                 D
               </span>
               <span className="font-display text-lg text-paper">DocuSense</span>
@@ -87,9 +225,22 @@ function Index() {
               </span>
             </div>
             <nav className="hidden items-center gap-7 font-mono text-[11px] uppercase tracking-[0.16em] text-paper/45 sm:flex">
-              <a href="#result" className="transition-colors hover:text-signal">Method</a>
-              <a href="#activity" className="transition-colors hover:text-signal">Library</a>
-              <a href="#guidance" className="transition-colors hover:text-signal">Guidance</a>
+              <a href="#result" className="transition-colors hover:text-signal">
+                Method
+              </a>
+              <a href="#activity" className="transition-colors hover:text-signal">
+                Library
+              </a>
+              <span className="text-paper/70">
+                {user.name} · {user.role}
+              </span>
+              <button
+                type="button"
+                onClick={logout}
+                className="transition-colors hover:text-signal"
+              >
+                Log out
+              </button>
             </nav>
           </div>
 
@@ -102,9 +253,9 @@ function Index() {
                 Read a document the way evidence is read — layer by layer.
               </h1>
               <p className="mt-6 max-w-[46ch] text-base leading-relaxed text-pretty text-paper/65">
-                DocuSense scores a paper across four transparent layers and shows you
-                exactly where the signals sit. It is a tool for judgement, not a
-                verdict — the decision stays with you.
+                DocuSense scores a paper across four transparent layers and shows you exactly where
+                the signals sit. It is a tool for judgement, not a verdict — the decision stays with
+                you.
               </p>
             </div>
 
@@ -115,12 +266,12 @@ function Index() {
                 progress={progress}
                 fileName={fileName}
               />
+              {error ? <p className="mt-3 text-sm text-red-400">{error}</p> : null}
             </div>
           </div>
         </div>
       </section>
 
-      {/* RESULT */}
       <section id="result" className="scroll-mt-6 bg-tabledeep">
         <div className="mx-auto max-w-6xl px-6 py-16 lg:px-10">
           <div className="flex flex-wrap items-end justify-between gap-4">
@@ -158,9 +309,8 @@ function Index() {
         </div>
       </section>
 
-      {/* DASHBOARD */}
       <section id="activity" className="scroll-mt-6 border-t border-paper/8 bg-table">
-        <Dashboard selected={scan} onSelect={select} />
+        <Dashboard selected={scan} onSelect={select} scans={[...history, ...SCANS]} />
       </section>
 
       <footer id="guidance" className="bg-tabledeep">
@@ -173,13 +323,6 @@ function Index() {
               <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-paper/30">
                 Ref. DS-2025 · build 04.19
               </span>
-            </div>
-            <div className="mt-4 flex flex-wrap gap-x-6 gap-y-1 font-mono text-[10px] uppercase tracking-[0.16em] text-paper/30">
-              <span>Method</span>
-              <span>Calibration</span>
-              <span>Privacy</span>
-              <span>For educators</span>
-              <span>Changelog</span>
             </div>
           </div>
         </div>

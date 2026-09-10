@@ -3,12 +3,14 @@ import { SCANS, TREND, type Scan } from "@/data/scans";
 export function Dashboard({
   selected,
   onSelect,
+  scans = SCANS,
 }: {
   selected: Scan;
   onSelect: (scan: Scan) => void;
+  scans?: Scan[];
 }) {
-  const avg = SCANS.reduce((s, x) => s + x.overall, 0) / SCANS.length;
-  const flagged = SCANS.reduce((s, x) => s + x.flagged, 0);
+  const avg = scans.length > 0 ? scans.reduce((s, x) => s + x.overall, 0) / scans.length : 0;
+  const flagged = scans.reduce((s, x) => s + x.flagged, 0);
 
   return (
     <div className="mx-auto max-w-6xl px-6 py-16 lg:px-10">
@@ -17,13 +19,15 @@ export function Dashboard({
       </p>
       <div className="mt-6 grid gap-6 lg:grid-cols-12">
         <div className="grid grid-cols-3 gap-4 lg:col-span-5">
-          <div className="rounded-[12px] bg-paper/[0.04] p-4 ring-1 ring-paper/10">
+          <div className="rounded-2xl bg-paper/4 p-4 ring-1 ring-paper/10">
             <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-paper/40">
               Papers this month
             </p>
-            <p className="mt-2 font-display text-3xl font-medium leading-none text-paper">42</p>
+            <p className="mt-2 font-display text-3xl font-medium leading-none text-paper">
+              {scans.length}
+            </p>
           </div>
-          <div className="rounded-[12px] bg-paper/[0.04] p-4 ring-1 ring-paper/10">
+          <div className="rounded-2xl bg-paper/4 p-4 ring-1 ring-paper/10">
             <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-paper/40">
               Flagged passages
             </p>
@@ -31,7 +35,7 @@ export function Dashboard({
               {flagged}
             </p>
           </div>
-          <div className="rounded-[12px] bg-paper/[0.04] p-4 ring-1 ring-paper/10">
+          <div className="rounded-2xl bg-paper/4 p-4 ring-1 ring-paper/10">
             <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-paper/40">
               Avg. overall
             </p>
@@ -41,7 +45,7 @@ export function Dashboard({
           </div>
         </div>
 
-        <div className="rounded-[18px] bg-paper/[0.04] p-6 ring-1 ring-paper/12 lg:col-span-7">
+        <div className="rounded-3xl bg-paper/4 p-6 ring-1 ring-paper/12 lg:col-span-7">
           <div className="flex items-center justify-between">
             <p className="text-sm text-paper/70">Mean overall signal · last 8 weeks</p>
             <span className="font-mono text-[10px] uppercase tracking-[0.12em] text-paper/35">
@@ -75,15 +79,15 @@ export function Dashboard({
         </div>
       </div>
 
-      <div className="mt-6 overflow-hidden rounded-[18px] ring-1 ring-paper/10">
-        <div className="grid grid-cols-12 gap-4 border-b border-paper/10 bg-paper/[0.04] px-5 py-3 font-mono text-[10px] uppercase tracking-[0.14em] text-paper/40">
+      <div className="mt-6 overflow-hidden rounded-3xl ring-1 ring-paper/10">
+        <div className="grid grid-cols-12 gap-4 border-b border-paper/10 bg-paper/4 px-5 py-3 font-mono text-[10px] uppercase tracking-[0.14em] text-paper/40">
           <span className="col-span-5">Paper</span>
           <span className="col-span-2">Author</span>
           <span className="col-span-3">Overall</span>
           <span className="col-span-2 text-right">Flagged</span>
         </div>
         <div className="divide-y divide-paper/8">
-          {SCANS.map((scan) => (
+          {scans.map((scan) => (
             <button
               key={scan.id}
               type="button"
@@ -101,9 +105,7 @@ export function Dashboard({
                     style={{ width: `${scan.overall * 100}%` }}
                   />
                 </span>
-                <span className="font-mono text-[12px] text-signal">
-                  {scan.overall.toFixed(2)}
-                </span>
+                <span className="font-mono text-[12px] text-signal">{scan.overall.toFixed(2)}</span>
               </span>
               <span className="col-span-2 text-right font-mono text-[12px] text-paper/60">
                 {scan.flagged} passages

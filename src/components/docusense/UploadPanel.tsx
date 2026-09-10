@@ -8,7 +8,7 @@ export function UploadPanel({
   progress,
   fileName,
 }: {
-  onFile: (name: string) => void;
+  onFile: (file: File) => void;
   analyzing: boolean;
   progress: number;
   fileName: string | null;
@@ -18,7 +18,7 @@ export function UploadPanel({
 
   const take = (files: FileList | null) => {
     const f = files?.[0];
-    if (f) onFile(f.name);
+    if (f) onFile(f);
   };
 
   return (
@@ -59,7 +59,7 @@ export function UploadPanel({
             {["PDF", "DOCX", "TXT", "RTF", "ODT"].map((t) => (
               <span
                 key={t}
-                className="rounded-full bg-paper/8 px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.1em] text-paper/55 ring-1 ring-paper/10"
+                className="rounded-full bg-paper/8 px-2.5 py-1 font-mono text-[10px] uppercase tracking-widest text-paper/55 ring-1 ring-paper/10"
               >
                 {t}
               </span>
