@@ -54,30 +54,74 @@ export type DetectionResultDto = {
   document?: { filename: string; extractedText?: string | null };
 };
 
-export async function uploadDocument(file: File, uploaderId?: number, token?: string) {
+// Shape returned by POST /api/scan on our .NET backend
+type ScanResultDto = {
+  id: string;
+  title: string;
+  author: string;
+  words: number;
+  draft: string;
+  date: string;
+  overall: number; // 0–1
+  flagged: number;
+  summary: string;
+  layers: Array<{ key: string; index: string; name: string; score: number; note: string }>;
+  passages: Array<{ id: string; text: string; layer?: string; reason?: string }>;
+};
+
+/**
+ * Upload a file to the .NET backend (/api/scan).
+ * The result is stored in-memory on the window object so getResult() can
+ * retrieve it immediately without a second round-trip.
+ * Returns a fake { documentId } that encodes the scan id as a number hash.
+ */
+const _pendingScans = new Map<number, ScanResultDto>();
+let _nextId = 1;
+
+export async function uploadDocument(file: File, _uploaderId?: number, token?: string) {
   const form = new FormData();
   form.append("file", file);
-  const url = uploaderId
-    ? `${API_BASE_URL}/api/documents/upload?uploaderId=${uploaderId}`
-    : `${API_BASE_URL}/api/documents/upload`;
   const headers: Record<string, string> = {};
   if (token) headers["Authorization"] = `Bearer ${token}`;
 
-  const res = await fetch(url, {
+  const res = await fetch(`${API_BASE_URL}/api/scan`, {
     method: "POST",
     headers,
     body: form,
   });
-  return handle<{ documentId: number; resultId: number; overallScore: number; status: string }>(
-    res,
-  );
+
+  const scan = await handle<ScanResultDto>(res);
+  const documentId = _nextId++;
+  _pendingScans.set(documentId, scan);
+
+  return { documentId, resultId: documentId, overallScore: scan.overall * 100, status: "complete" };
 }
 
-export async function getResult(documentId: number, token?: string) {
-  const headers: Record<string, string> = {};
-  if (token) headers["Authorization"] = `Bearer ${token}`;
-  const res = await fetch(`${API_BASE_URL}/api/documents/${documentId}/result`, { headers });
-  return handle<DetectionResultDto>(res);
+/**
+ * Retrieve the scan result previously stored by uploadDocument().
+ * Maps the .NET ScanResult shape into the DetectionResultDto shape the
+ * React components already use.
+ */
+export async function getResult(documentId: number, _token?: string): Promise<DetectionResultDto> {
+  const scan = _pendingScans.get(documentId);
+  if (!scan) throw new Error(`No scan result found for document ${documentId}`);
+  _pendingScans.delete(documentId);
+
+  return {
+    documentId,
+    overallScore: scan.overall * 100,
+    status: scan.draft,
+    layerScores: scan.layers.map((l) => ({
+      layerType: l.key,
+      score: l.score * 100,
+    })),
+    highlightedSections: scan.passages.map((p, i) => ({
+      sectionText: p.text,
+      sectionScore: scan.overall * 100,
+      position: i,
+    })),
+    document: { filename: scan.title },
+  };
 }
 
 export async function resetPassword(input: { email: string; newPassword: string }) {
