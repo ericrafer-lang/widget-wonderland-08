@@ -14,11 +14,27 @@ export function UploadPanel({
   fileName: string | null;
 }) {
   const [over, setOver] = useState(false);
+  const [fileError, setFileError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const take = (files: FileList | null) => {
     const f = files?.[0];
-    if (f) onFile(f);
+    if (!f) return;
+
+    const lastDot = f.name.lastIndexOf(".");
+    const ext = lastDot !== -1 ? f.name.slice(lastDot).toLowerCase() : "";
+
+    if (!ACCEPTED.includes(ext)) {
+      setFileError(
+        `Unsupported file type (${ext || "no extension"}). Allowed formats: PDF, DOCX, DOC, TXT, RTF, ODT.`,
+      );
+      if (inputRef.current) inputRef.current.value = "";
+      return;
+    }
+
+    setFileError(null);
+    if (inputRef.current) inputRef.current.value = "";
+    onFile(f);
   };
 
   return (
@@ -94,6 +110,7 @@ export function UploadPanel({
           </div>
         ) : null}
       </div>
+      {fileError ? <p className="mt-3 text-sm text-red-400">{fileError}</p> : null}
       <p className="mt-3 px-1 font-mono text-[10px] leading-relaxed text-paper/35">
         Files stay on your device during review. Nothing is stored or shared.
       </p>

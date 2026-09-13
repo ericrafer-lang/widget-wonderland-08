@@ -27,9 +27,10 @@ export type Scan = {
   summary: string;
   layers: Layer[];
   passages: Passage[];
+  isSample?: boolean;
 };
 
-export const SCANS: Scan[] = [
+const RAW_SCANS: Scan[] = [
   {
     id: "ds-1",
     title: "The Ethics of Machine Translation",
@@ -208,6 +209,8 @@ export const SCANS: Scan[] = [
     ],
   },
 ];
+
+export const SCANS: Scan[] = RAW_SCANS.map((s) => ({ ...s, isSample: true }));
 
 export const TREND = [
   { label: "W1", value: 0.34 },

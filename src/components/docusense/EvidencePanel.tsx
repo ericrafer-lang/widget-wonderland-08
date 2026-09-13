@@ -14,11 +14,18 @@ export function EvidencePanel({
   const dash = 327;
 
   return (
-    <div className="rounded-[18px] bg-paper/[0.04] p-7 ring-1 ring-paper/12">
+    <div className="rounded-[18px] bg-paper/4 p-7 ring-1 ring-paper/12">
       <div className="flex items-center justify-between gap-3">
-        <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-paper/45">
-          Overall read
-        </p>
+        <div className="flex items-center gap-2">
+          <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-paper/45">
+            Overall read
+          </p>
+          {scan.isSample && (
+            <span className="rounded-full bg-signal/15 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.14em] text-signal ring-1 ring-signal/30">
+              Sample
+            </span>
+          )}
+        </div>
         <span className="rounded-full bg-signal/12 px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.12em] text-signal ring-1 ring-signal/30">
           signal · not a verdict
         </span>

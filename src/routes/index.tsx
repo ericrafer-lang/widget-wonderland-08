@@ -1,4 +1,4 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { UploadPanel } from "@/components/docusense/UploadPanel";
 import { EvidencePanel } from "@/components/docusense/EvidencePanel";
@@ -231,13 +231,18 @@ function Index() {
               <a href="#activity" className="transition-colors hover:text-signal">
                 Library
               </a>
+              {user.role === "Admin" && (
+                <Link to="/admin" className="text-signal transition-colors hover:underline">
+                  Admin
+                </Link>
+              )}
               <span className="text-paper/70">
                 {user.name} · {user.role}
               </span>
               <button
                 type="button"
                 onClick={logout}
-                className="transition-colors hover:text-signal"
+                className="cursor-pointer transition-colors hover:text-signal"
               >
                 Log out
               </button>
@@ -284,9 +289,16 @@ function Index() {
               </h2>
             </div>
             <div className="rounded-[10px] bg-paper/5 px-3 py-2 ring-1 ring-paper/10">
-              <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-paper/40">
-                Paper
-              </p>
+              <div className="flex items-center justify-between gap-3">
+                <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-paper/40">
+                  Paper
+                </p>
+                {scan.isSample && (
+                  <span className="rounded-full bg-signal/15 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.14em] text-signal ring-1 ring-signal/30">
+                    Reference paper
+                  </span>
+                )}
+              </div>
               <p className="mt-0.5 text-sm text-paper/80">
                 {scan.title} · {scan.words.toLocaleString()} words
               </p>

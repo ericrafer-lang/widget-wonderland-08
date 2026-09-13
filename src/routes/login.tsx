@@ -48,9 +48,17 @@ function LoginPage() {
             />
           </div>
           <div>
-            <label className="font-mono text-[11px] uppercase tracking-[0.14em] text-paper/50">
-              Password
-            </label>
+            <div className="flex items-center justify-between">
+              <label className="font-mono text-[11px] uppercase tracking-[0.14em] text-paper/50">
+                Password
+              </label>
+              <Link
+                to="/forgot-password"
+                className="font-mono text-[11px] text-signal/80 transition-colors hover:text-signal hover:underline"
+              >
+                Forgot password?
+              </Link>
+            </div>
             <input
               type="password"
               required

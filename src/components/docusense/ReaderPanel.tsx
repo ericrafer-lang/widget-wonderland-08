@@ -13,9 +13,16 @@ export function ReaderPanel({
   return (
     <div className="rounded-[18px] bg-paper p-7 ring-1 ring-black/5">
       <div className="flex items-center justify-between gap-3">
-        <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-inksoft/70">
-          Manuscript · reader
-        </p>
+        <div className="flex items-center gap-2">
+          <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-inksoft/70">
+            Manuscript · reader
+          </p>
+          {scan.isSample && (
+            <span className="rounded-full bg-signal/20 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.14em] text-ink ring-1 ring-signal/40">
+              Reference paper
+            </span>
+          )}
+        </div>
         <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-inksoft/60">
           {scan.flagged} flagged
         </span>

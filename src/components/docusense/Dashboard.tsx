@@ -96,7 +96,14 @@ export function Dashboard({
                 selected.id === scan.id ? "bg-signal/8" : "hover:bg-paper/5"
               }`}
             >
-              <span className="col-span-5 text-sm text-paper/80">{scan.title}</span>
+              <span className="col-span-5 flex items-center gap-2 pr-2">
+                <span className="truncate text-sm text-paper/80">{scan.title}</span>
+                {scan.isSample && (
+                  <span className="shrink-0 rounded-full bg-signal/15 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.14em] text-signal ring-1 ring-signal/30">
+                    Sample
+                  </span>
+                )}
+              </span>
               <span className="col-span-2 font-mono text-[12px] text-paper/50">{scan.author}</span>
               <span className="col-span-3 flex items-center gap-2">
                 <span className="h-1.5 flex-1 rounded-full bg-paper/10">
