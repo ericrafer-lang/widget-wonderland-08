@@ -5,7 +5,7 @@ export function Dashboard({
   onSelect,
   scans = SCANS,
 }: {
-  selected: Scan;
+  selected?: Scan;
   onSelect: (scan: Scan) => void;
   scans?: Scan[];
 }) {
@@ -93,7 +93,7 @@ export function Dashboard({
               type="button"
               onClick={() => onSelect(scan)}
               className={`grid w-full grid-cols-12 items-center gap-4 px-5 py-4 text-left transition-colors ${
-                selected.id === scan.id ? "bg-signal/8" : "hover:bg-paper/5"
+                selected?.id === scan.id ? "bg-signal/8" : "hover:bg-paper/5"
               }`}
             >
               <span className="col-span-5 flex items-center gap-2 pr-2">

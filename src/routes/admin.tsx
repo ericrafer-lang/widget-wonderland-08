@@ -1,5 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
+import { AppNav } from "@/components/docusense/AppNav";
 import { useAuth } from "@/lib/auth";
 import { getUsers, deleteUser, type AdminUserDto } from "@/lib/docusense-api";
 import {
@@ -137,39 +138,7 @@ function AdminPage() {
 
   return (
     <main className="min-h-screen bg-tabledeep font-sans text-paper/80 antialiased">
-      {/* Top Bar */}
-      <section className="grain border-b border-paper/10 bg-table">
-        <div className="mx-auto max-w-6xl px-6 py-6 lg:px-10">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2.5">
-              <Link to="/" className="flex items-center gap-2.5">
-                <span className="grid size-7 place-items-center rounded-xl bg-signal/15 font-mono text-[13px] font-medium text-signal ring-1 ring-signal/40">
-                  D
-                </span>
-                <span className="font-display text-lg text-paper">DocuSense</span>
-              </Link>
-              <span className="ml-1 rounded-full bg-signal/15 px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.18em] text-signal ring-1 ring-signal/30">
-                admin portal
-              </span>
-            </div>
-            <nav className="flex items-center gap-6 font-mono text-[11px] uppercase tracking-[0.16em] text-paper/45">
-              <Link to="/" className="transition-colors hover:text-signal">
-                Workspace
-              </Link>
-              <span className="hidden text-paper/70 sm:inline">
-                {user.name} · {user.role}
-              </span>
-              <button
-                type="button"
-                onClick={logout}
-                className="cursor-pointer transition-colors hover:text-signal"
-              >
-                Log out
-              </button>
-            </nav>
-          </div>
-        </div>
-      </section>
+      <AppNav />
 
       {/* Main Content */}
       <section className="mx-auto max-w-6xl px-6 py-12 lg:px-10">
